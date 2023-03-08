@@ -1,4 +1,4 @@
-package bybitwebsocket
+package main
 
 type Position struct {
 	ID           string `json:"id"`
