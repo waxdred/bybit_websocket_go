@@ -30,6 +30,9 @@ type public struct {
 
 type private struct {
 	conn      *websocket.Conn
+	apiKey    string
+	apiSecret string
+	url       string
 	position  SubscribeHandler
 	execution SubscribeHandler
 	order     SubscribeHandler
@@ -126,12 +129,37 @@ func (wss *WssBybit) RecvGreek() *Greek {
 	return &greek
 }
 
+func (wss *WssBybit) reconnecte() *WssBybit {
+	var err error
+	wss.priv.conn, _, err = websocket.DefaultDialer.Dial(wss.priv.url, nil)
+	if err != nil {
+		log.Fatal("connection failed:", err)
+	}
+	wss.auth()
+	return wss
+}
+
+func (wss *WssBybit) auth() {
+	sign, expires := generateSignature(apiKey, apiSecret)
+	authPayload := map[string]interface{}{
+		"op":   "auth",
+		"args": []interface{}{wss.priv.apiKey, expires, sign},
+	}
+	err := wss.priv.conn.WriteJSON(authPayload)
+	if err != nil {
+		log.Fatal("authentication failed:", err)
+	}
+	fmt.Println("authentication successful")
+}
+
 func (wss *WssBybit) NewPrivate(urlPrivate, apiKey, apiSecret string) *WssBybit {
 	var err error
+	wss.priv.url = url
+	wss.priv.apiKey = apiKey
+	wss.priv.apiSecret = apiSecret
 	wss.nbconn += 1
 	wss.priv.recv = make(chan []byte)
 	wss.priv.err = make(chan []byte)
-	sign, expires := generateSignature(apiKey, apiSecret)
 	// Create websocket connection.
 	wss.priv.conn, _, err = websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
@@ -139,6 +167,9 @@ func (wss *WssBybit) NewPrivate(urlPrivate, apiKey, apiSecret string) *WssBybit 
 	}
 	go func() {
 		for {
+			if wss.priv.conn == nil {
+				wss.reconnecte()
+			}
 			data := make(map[string]interface{})
 			_, message, err := wss.priv.conn.ReadMessage()
 			if err != nil {
@@ -157,15 +188,7 @@ func (wss *WssBybit) NewPrivate(urlPrivate, apiKey, apiSecret string) *WssBybit 
 		}
 	}()
 	// Authenticate with API.
-	authPayload := map[string]interface{}{
-		"op":   "auth",
-		"args": []interface{}{apiKey, expires, sign},
-	}
-	err = wss.priv.conn.WriteJSON(authPayload)
-	if err != nil {
-		log.Fatal("authentication failed:", err)
-	}
-	fmt.Println("authentication successful")
+	wss.auth()
 	// Start goroutine to receive messages from WebSocket.
 	go func() {
 		ticker := time.NewTicker(time.Duration(time.Second * 20))
@@ -194,10 +217,13 @@ func (wss *WssBybit) NewPrivate(urlPrivate, apiKey, apiSecret string) *WssBybit 
 					case "position":
 						wss.priv.position(wss)
 					case "execution":
+						wss.priv.execution(wss)
 					case "order":
+						wss.priv.order(wss)
 					case "wallet":
 						wss.priv.wallet(wss)
 					case "greek":
+						wss.priv.greek(wss)
 					}
 				}
 			default:
