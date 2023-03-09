@@ -1,5 +1,17 @@
 package main
 
+import (
+	"encoding/json"
+)
+
+func pretty(data interface{}) []byte {
+	prettyJSON, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return nil
+	}
+	return prettyJSON
+}
+
 type Topic struct {
 	ID           string `json:"id"`
 	Topic        string `json:"topic"`
@@ -37,6 +49,10 @@ type Position struct {
 	} `json:"data"`
 }
 
+func (p *Position) PrettyFormat() string {
+	return string(pretty(p))
+}
+
 type Execution struct {
 	Topic Topic
 	Data  []struct {
@@ -67,6 +83,10 @@ type Execution struct {
 		ExecTime        string `json:"execTime"`
 		IsLeverage      string `json:"isLeverage"`
 	} `json:"data"`
+}
+
+func (p *Execution) PrettyFormat() string {
+	return string(pretty(p))
 }
 
 type Order struct {
@@ -109,6 +129,10 @@ type Order struct {
 	} `json:"data"`
 }
 
+func (p *Order) PrettyFormat() string {
+	return string(pretty(p))
+}
+
 type Wallet struct {
 	Topic Topic
 	Data  []struct {
@@ -141,6 +165,10 @@ type Wallet struct {
 	} `json:"data"`
 }
 
+func (p *Wallet) PrettyFormat() string {
+	return string(pretty(p))
+}
+
 type Greek struct {
 	Topic Topic
 	Data  []struct {
@@ -150,4 +178,8 @@ type Greek struct {
 		TotalVega  string `json:"totalVega"`
 		TotalTheta string `json:"totalTheta"`
 	} `json:"data"`
+}
+
+func (p *Greek) PrettyFormat() string {
+	return string(pretty(p))
 }
