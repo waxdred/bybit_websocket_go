@@ -19,7 +19,7 @@ type public struct {
 	ticker_lt   *SubscribeHandler
 	lt          *SubscribeHandler
 	recv        chan SocketMessage
-	err         chan []byte
+	stop        chan bool
 }
 
 func (wss *WssBybit) AddPublicSubs(args []string, subs ...SubscribeHandler) *WssBybit {
@@ -32,10 +32,8 @@ func (wss *WssBybit) AddPublicSubs(args []string, subs ...SubscribeHandler) *Wss
 	if wss.err != nil {
 		return wss
 	}
-	last := len(wss.handlePriv) - 1
-	if last < 0 {
-		wss.err = errors.New("AddPrivateSubs error Please AddConn")
-		return wss
+	if wss.listenner.types != "public" {
+		panic("Error add connPublic")
 	}
 	for i, arg := range args {
 		topic := strings.Split(arg, ".")
@@ -43,22 +41,30 @@ func (wss *WssBybit) AddPublicSubs(args []string, subs ...SubscribeHandler) *Wss
 			switch topic[0] {
 			case "orderbook", "trade", "ticker", "kline", "liquidation",
 				"kline_lt", "ticker_lt", "lt":
-				fmt.Println("send handler")
-				wss = setHandler(arg, wss, &subs[i], args, last)
+				wss = setHandler(topic[0], wss, &subs[i], args)
 			}
 		}
 	}
 	return wss
 }
 
-func (wss *WssBybit) addPub(url Wssurl) *WssBybit {
+func (wss *WssBybit) addPub(url Wssurl) (*WssBybit, error) {
 	// Create websocket connection.
-	wss.run = "public"
 	conn, _, err := websocket.DefaultDialer.Dial(string(url), nil)
 	if err != nil {
 		fmt.Println("connection failed:", err)
 		wss.err = err
-		return wss
+		return wss, err
+	}
+	if wss.listenner == nil {
+		wss.listenner = &listenner{
+			key:   WssId(conn.RemoteAddr().String()),
+			types: "public",
+		}
+	} else if wss.listenner.types != "public" {
+		fmt.Println("Error fields")
+		wss.err = errors.New("Error fields")
+		return wss, wss.err
 	}
 	pub := public{
 		conn:        conn,
@@ -71,8 +77,12 @@ func (wss *WssBybit) addPub(url Wssurl) *WssBybit {
 		ticker_lt:   nil,
 		lt:          nil,
 		recv:        make(chan SocketMessage),
+		stop:        make(chan bool),
 	}
-	wss.handlePub = append(wss.handlePub, &pub)
+	if wss.Dg {
+		fmt.Println("Connection ok")
+	}
+	wss.handlePub[wss.listenner.key] = &pub
 	wss.nbconn += 1
-	return wss
+	return wss, nil
 }

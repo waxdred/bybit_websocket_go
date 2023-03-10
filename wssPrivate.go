@@ -18,7 +18,7 @@ type private struct {
 	greek     *SubscribeHandler
 	recv      chan SocketMessage
 	msg       []byte
-	err       chan []byte
+	stop      chan bool
 	sub       int
 }
 
@@ -29,32 +29,45 @@ func (wss *WssBybit) AddPrivateSubs(args []string, subs ...SubscribeHandler) *Ws
 		wss.err = errors.New("Please add args and SubscribeHandler")
 		return wss
 	}
-	if wss.err != nil {
-		return wss
+	if wss.listenner.types != "private" {
+		panic("Error add connPrivate")
 	}
-	last := len(wss.handlePriv) - 1
-	if last < 0 {
-		wss.err = errors.New("AddPrivateSubs error Please AddConn")
+	if wss.err != nil {
+		fmt.Println(wss.err)
 		return wss
 	}
 	for i, arg := range args {
 		switch arg {
 		case "position", "execution", "order", "wallet", "greek":
-			fmt.Println("send handler")
-			wss = setHandler(arg, wss, &subs[i], args, last)
+			if wss.Dg {
+				fmt.Println(arg, "is set")
+			}
+			wss = setHandler(arg, wss, &subs[i], args)
 		}
 	}
 	return wss
 }
 
-func (wss *WssBybit) addPrivate(url Wssurl, apiKey, apiSecret string) *WssBybit {
+func (wss *WssBybit) addPrivate(url Wssurl, apiKey, apiSecret string) (*WssBybit, error) {
 	// Create websocket connection.
-	wss.run = "private"
 	conn, _, err := websocket.DefaultDialer.Dial(string(url), nil)
 	if err != nil {
 		fmt.Println("connection failed:", err)
 		wss.err = err
-		return wss
+		return wss, err
+	}
+	if wss.listenner == nil {
+		wss.listenner = &listenner{
+			key:   WssId(conn.RemoteAddr().String()),
+			types: "private",
+		}
+	} else {
+		fmt.Println("Error AddConnPrivate is already init use method listen()")
+		wss.err = errors.New("Error AddConnPrivate is already init use method listen()")
+		return wss, wss.err
+	}
+	if wss.Dg {
+		fmt.Println("Connection:", conn.RemoteAddr().String())
 	}
 	priv := private{
 		conn:      conn,
@@ -66,11 +79,11 @@ func (wss *WssBybit) addPrivate(url Wssurl, apiKey, apiSecret string) *WssBybit 
 		wallet:    nil,
 		greek:     nil,
 		recv:      make(chan SocketMessage),
-		sub:       0,
+		stop:      make(chan bool),
 	}
-	wss.handlePriv = append(wss.handlePriv, &priv)
+	wss.handlePriv[wss.listenner.key] = &priv
 	wss.nbconn += 1
 	// Authenticate with API.
-	wss.auth(len(wss.handlePriv) - 1)
-	return wss
+	wss.auth()
+	return wss, nil
 }

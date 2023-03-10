@@ -4,7 +4,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -14,7 +13,7 @@ import (
 type (
 	SubscribeHandler func(*WssBybit, *SocketMessage)
 )
-type WssId int
+type WssId string
 
 type WssBybit struct {
 	mu sync.RWMutex
@@ -22,12 +21,18 @@ type WssBybit struct {
 	pub        public
 	nbconn     int
 	nbHandle   int
-	handlePriv []*private
-	handlePub  []*public
+	handlePriv map[WssId]*private
+	handlePub  map[WssId]*public
 	err        error
 	WssUrl     WssUrl
 	Dg         bool
 	run        string
+	listenner  *listenner
+}
+
+type listenner struct {
+	key   WssId
+	types string
 }
 
 type SocketMessage struct {
@@ -36,97 +41,123 @@ type SocketMessage struct {
 }
 
 func (wss *WssBybit) New(debugInfo bool) *WssBybit {
-	fmt.Println(debugInfo)
-	newWss := WssBybit{
-		mu: sync.RWMutex{},
-		// priv:     make(map[string]*private),
+	wss = &WssBybit{
+		mu:         sync.RWMutex{},
 		nbconn:     0,
 		nbHandle:   0,
-		handlePriv: nil,
-		handlePub:  nil,
+		handlePriv: make(map[WssId]*private),
+		handlePub:  make(map[WssId]*public),
 		err:        nil,
 		WssUrl:     WssUrl{},
-		Dg:         true,
+		Dg:         debugInfo,
 		run:        "",
+		listenner:  nil,
 	}
-	wss = &newWss
 	return wss
 }
 
 // types private | public
-func (wss *WssBybit) AddConn(types string, url Wssurl, apiKey, apiSecret string) *WssBybit {
-	fmt.Println(wss.Dg)
-	switch types {
-	case "private":
-		wss.addPrivate(url, apiKey, apiSecret)
-	case "public":
-		wss.addPub(url)
-	}
+func (wss *WssBybit) AddConnPrivate(url Wssurl, apiKey, apiSecret string) *WssBybit {
+	wss.addPrivate(url, apiKey, apiSecret)
+	return wss
+}
+
+func (wss *WssBybit) AddConnPublic(url Wssurl) *WssBybit {
+	wss.addPub(url)
 	return wss
 }
 
 func (wss *WssBybit) Listen() (WssId, error) {
-	last := len(wss.handlePriv) - 1
-	if wss.err != nil {
+	key := wss.listenner.key
+	if wss.err != nil || wss.listenner == nil {
 		err := wss.err
+		fmt.Println(err)
 		wss.err = nil
-		return -1, err
+		return WssId(""), err
 	}
-	if last < 0 {
-		wss.err = errors.New("Listen error not handle add")
-		return -1, wss.err
+	if wss.listenner.types == "private" {
+		go wss.listenSocketPrivate(wss.listenner.key)
+		go wss.routineMessagePrivate(wss.listenner.key)
+	} else if wss.listenner.types == "public" {
+		go wss.listenSocketPub(wss.listenner.key)
+		go wss.routineMessagePub(wss.listenner.key)
 	}
-	if wss.run == "private" {
-		if wss.handlePriv[last].sub > 0 {
-			go wss.listenSocketPrivate(last)
-			go wss.routineMessagePrivate(last)
-		}
-	} else if wss.run == "public" {
-		if wss.handlePriv[last].sub > 0 {
-			go wss.listenSocketPub(last)
-			go wss.routineMessagePub(last)
-		}
-	}
-	return WssId(last), nil
+	wss.listenner = nil
+	return key, nil
 }
 
-func setHandler(topic string, wss *WssBybit, subs *SubscribeHandler, args []string, idx int) *WssBybit {
+func setHandler(topic string, wss *WssBybit, subs *SubscribeHandler, args []string) *WssBybit {
+	if wss.listenner == nil {
+		return wss
+	}
 	send := map[string]interface{}{
 		"op":   "subscribe",
 		"args": args,
 	}
 	switch topic {
 	case "position":
-		wss.handlePriv[idx].position = subs
+		wss.handlePriv[wss.listenner.key].position = subs
+		wss.handlePriv[wss.listenner.key].conn.WriteJSON(send)
+		wss.handlePriv[wss.listenner.key].sub += 1
 	case "execution":
-		wss.handlePriv[idx].execution = subs
+		wss.handlePriv[wss.listenner.key].execution = subs
+		wss.handlePriv[wss.listenner.key].conn.WriteJSON(send)
+		wss.handlePriv[wss.listenner.key].sub += 1
 	case "order":
-		wss.handlePriv[idx].order = subs
+		wss.handlePriv[wss.listenner.key].order = subs
+		wss.handlePriv[wss.listenner.key].conn.WriteJSON(send)
+		wss.handlePriv[wss.listenner.key].sub += 1
 	case "wallet":
-		wss.handlePriv[idx].wallet = subs
+		wss.handlePriv[wss.listenner.key].wallet = subs
+		wss.handlePriv[wss.listenner.key].conn.WriteJSON(send)
+		wss.handlePriv[wss.listenner.key].sub += 1
 	case "greek":
-		wss.handlePriv[idx].greek = subs
+		wss.handlePriv[wss.listenner.key].greek = subs
+		wss.handlePriv[wss.listenner.key].conn.WriteJSON(send)
+		wss.handlePriv[wss.listenner.key].sub += 1
 	case "orderbook":
-		wss.handlePub[idx].orderbook = subs
+		if wss.handlePub[wss.listenner.key] != nil {
+			wss.handlePub[wss.listenner.key].orderbook = subs
+			wss.handlePub[wss.listenner.key].conn.WriteJSON(send)
+		}
 	case "trade":
-		wss.handlePub[idx].trade = subs
+		if wss.handlePub[wss.listenner.key] != nil {
+			wss.handlePub[wss.listenner.key].trade = subs
+			wss.handlePub[wss.listenner.key].conn.WriteJSON(send)
+		}
 	case "ticker":
-		wss.handlePub[idx].ticker = subs
+		if wss.handlePub[wss.listenner.key] != nil {
+			wss.handlePub[wss.listenner.key].ticker = subs
+			wss.handlePub[wss.listenner.key].conn.WriteJSON(send)
+		}
 	case "kline":
-		wss.handlePub[idx].kline = subs
+		if wss.handlePub[wss.listenner.key] != nil {
+			wss.handlePub[wss.listenner.key].kline = subs
+			wss.handlePub[wss.listenner.key].conn.WriteJSON(send)
+		}
 	case "liquidation":
-		wss.handlePub[idx].liquidation = subs
+		if wss.handlePub[wss.listenner.key] != nil {
+			wss.handlePub[wss.listenner.key].liquidation = subs
+			wss.handlePub[wss.listenner.key].conn.WriteJSON(send)
+		}
 	case "kline_lt":
-		wss.handlePub[idx].kline_lt = subs
+		if wss.handlePub[wss.listenner.key] != nil {
+			wss.handlePub[wss.listenner.key].kline_lt = subs
+			wss.handlePub[wss.listenner.key].conn.WriteJSON(send)
+		}
 	case "ticker_lt":
-		wss.handlePub[idx].ticker_lt = subs
+		if wss.handlePub[wss.listenner.key] != nil {
+			wss.handlePub[wss.listenner.key].ticker_lt = subs
+			wss.handlePub[wss.listenner.key].conn.WriteJSON(send)
+		}
 	case "lt":
-		wss.handlePub[idx].lt = subs
+		if wss.handlePub[wss.listenner.key] != nil {
+			wss.handlePub[wss.listenner.key].lt = subs
+			wss.handlePub[wss.listenner.key].conn.WriteJSON(send)
+		}
 
 	}
-	wss.handlePriv[idx].conn.WriteJSON(send)
 	wss.nbHandle += 1
-	wss.handlePriv[idx].sub += 1
 	return wss
 }
 
@@ -137,32 +168,43 @@ func (sockk *SocketMessage) Unmarshal(data interface{}) error {
 	return nil
 }
 
-func (wss *WssBybit) auth(idx int) {
+func (wss *WssBybit) auth() {
 	sign, expires := generateSignature(apiKey, apiSecret)
 	authPayload := map[string]interface{}{
 		"op":   "auth",
-		"args": []interface{}{wss.handlePriv[idx].apiKey, expires, sign},
+		"args": []interface{}{wss.handlePriv[wss.listenner.key].apiKey, expires, sign},
 	}
-	err := wss.handlePriv[idx].conn.WriteJSON(authPayload)
+	err := wss.handlePriv[wss.listenner.key].conn.WriteJSON(authPayload)
 	if err != nil {
 		log.Fatal("authentication failed:", err)
 	}
 }
 
 func (wss *WssBybit) CloseConn(id WssId) {
-	if WssId(len(wss.handlePriv)) > id && wss.handlePriv[id] != nil {
-		wss.handlePriv[id].conn.Close()
+	fmt.Println("Close connection:", id)
+	if w, ok := wss.handlePriv[id]; ok {
+		w.stop <- true
+		w.conn.Close()
+		delete(wss.handlePriv, id)
+	} else if w, ok := wss.handlePub[id]; ok {
+		w.stop <- true
+		w.conn.Close()
+		delete(wss.handlePub, id)
 	}
 }
 
 func (wss *WssBybit) Close() {
 	for _, w := range wss.handlePriv {
 		if w != nil && w.conn != nil {
+			log.Println("close conn")
+			w.stop <- true
 			w.conn.Close()
 		}
 	}
 	for _, w := range wss.handlePub {
 		if w != nil && w.conn != nil {
+			log.Println("close conn")
+			w.stop <- true
 			w.conn.Close()
 		}
 	}
