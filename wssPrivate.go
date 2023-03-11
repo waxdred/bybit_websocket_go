@@ -1,4 +1,4 @@
-package main
+package bybit_websocket_go
 
 import (
 	"errors"
@@ -25,12 +25,16 @@ type private struct {
 func (wss *WssBybit) AddPrivateSubs(args []string, subs ...SubscribeHandler) *WssBybit {
 	wss.mu.Lock()
 	defer wss.mu.Unlock()
+	if wss.listenner.types != "private" {
+		fmt.Println("Error connection private add public Sub")
+		wss.CloseConn(wss.listenner.key)
+		return wss
+	}
 	if len(args) != len(subs) {
 		wss.err = errors.New("Please add args and SubscribeHandler")
 		return wss
-	}
-	if wss.listenner.types != "private" {
-		panic("Error add connPrivate")
+	} else if _, ok := wss.handlePriv[wss.listenner.key]; !ok {
+		return wss
 	}
 	if wss.err != nil {
 		fmt.Println(wss.err)

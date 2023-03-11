@@ -1,4 +1,4 @@
-package main
+package bybit_websocket_go
 
 import (
 	"encoding/json"

@@ -1,4 +1,4 @@
-package main
+package bybit_websocket_go
 
 import (
 	"crypto/hmac"
@@ -196,14 +196,14 @@ func (wss *WssBybit) CloseConn(id WssId) {
 func (wss *WssBybit) Close() {
 	for _, w := range wss.handlePriv {
 		if w != nil && w.conn != nil {
-			log.Println("close conn")
+			fmt.Println("close conn")
 			w.stop <- true
 			w.conn.Close()
 		}
 	}
 	for _, w := range wss.handlePub {
 		if w != nil && w.conn != nil {
-			log.Println("close conn")
+			fmt.Println("close conn")
 			w.stop <- true
 			w.conn.Close()
 		}

@@ -1,4 +1,4 @@
-package main
+package bybit_websocket_go
 
 import (
 	"errors"
@@ -25,15 +25,20 @@ type public struct {
 func (wss *WssBybit) AddPublicSubs(args []string, subs ...SubscribeHandler) *WssBybit {
 	wss.mu.Lock()
 	defer wss.mu.Unlock()
+	if wss.listenner.types != "public" {
+		fmt.Println("Error connection private add public Sub")
+		wss.Close()
+		return wss
+	}
+	if _, ok := wss.handlePub[wss.listenner.key]; !ok {
+		return wss
+	}
 	if len(args) != len(subs) {
 		wss.err = errors.New("Please add args and SubscribeHandler")
 		return wss
 	}
 	if wss.err != nil {
 		return wss
-	}
-	if wss.listenner.types != "public" {
-		panic("Error add connPublic")
 	}
 	for i, arg := range args {
 		topic := strings.Split(arg, ".")

@@ -1,4 +1,4 @@
-package main
+package bybit_websocket_go
 
 const (
 	wssSpot          = "wss://stream.bybit.com/v5/public/spot"
