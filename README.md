@@ -7,9 +7,9 @@
 - [Installation](#Installation)
 - [Usage](#Usage)
 - [Connection](#Connection)
-- [Public streams](#Public streams)
-- [Private streams](#Private streams)
-- [Testnet vs Mainnet](#Testnet vs Mainnet)
+- [Public streams](#Public_streams)
+- [Private streams](#Private_streams)
+- [Testnet vs Mainnet](#Testnet_vs_Mainnet)
 - [Contributing](#Contributing)
 - [License](#License)
 
@@ -38,7 +38,7 @@ To close all open connections, you can use the Close function:
 ```go
 defer wss.Close()
 ```
-## Public streams
+## Public_streams
 To subscribe to a public stream, use the AddConnPublic function of the WssBybit struct, which takes the URL of the stream as its parameter:
 
 ```go
@@ -54,7 +54,7 @@ wss.AddPublicSubs([]string{"orderBookL2_25.BTCUSD"}, func(wss *Bwss.WssBybit, so
     fmt.Println(string(sockk.Msg))
 })
 ```
-## Private streams
+## Private_streams
 To subscribe to a private stream, use the AddConnPrivate function of the WssBybit struct, which takes the URL of the stream, your API key, and your API secret as its parameters:
 
 ```go
@@ -74,7 +74,7 @@ wss.AddPrivateSubs([]string{"wallet", "position"}, func(wss *Bwss.WssBybit, sock
 })
 ```
 
-## Testnet vs Mainnet
+## Testnet_vs_Mainnet
 Bybit offers two separate environments for testing and live trading: Testnet and Mainnet. The Testnet environment allows you to test your strategies and code without risking real funds, while the Mainnet environment is for actual trading.
 
 In the code, you can select which environment to use by passing either Bwss.Testnet or Bwss.Mainnet as the parameter to the WssUrl functions:
