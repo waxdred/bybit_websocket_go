@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -55,6 +56,19 @@ func (wss *WssBybit) AddPublicSubs(args []string, subs ...SubscribeHandler) *Wss
 
 func (wss *WssBybit) addPub(url Wssurl) (*WssBybit, error) {
 	// Create websocket connection.
+	if wss.nbconn >= 500 {
+		ticker := time.NewTicker(time.Duration(time.Minute * 1))
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if wss.nbconn < 400 {
+					break
+				}
+			}
+		}
+	}
+
 	conn, _, err := websocket.DefaultDialer.Dial(string(url), nil)
 	if err != nil {
 		fmt.Println("connection failed:", err)
@@ -89,5 +103,6 @@ func (wss *WssBybit) addPub(url Wssurl) (*WssBybit, error) {
 	}
 	wss.handlePub[wss.listenner.key] = &pub
 	wss.nbconn += 1
+	wss.reset += 1
 	return wss, nil
 }

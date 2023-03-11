@@ -3,6 +3,7 @@ package bybit_websocket_go
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -54,6 +55,18 @@ func (wss *WssBybit) AddPrivateSubs(args []string, subs ...SubscribeHandler) *Ws
 
 func (wss *WssBybit) addPrivate(url Wssurl, apiKey, apiSecret string) (*WssBybit, error) {
 	// Create websocket connection.
+	if wss.nbconn >= 500 {
+		ticker := time.NewTicker(time.Duration(time.Minute * 1))
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if wss.nbconn < 400 {
+					break
+				}
+			}
+		}
+	}
 	conn, _, err := websocket.DefaultDialer.Dial(string(url), nil)
 	if err != nil {
 		fmt.Println("connection failed:", err)
@@ -87,6 +100,7 @@ func (wss *WssBybit) addPrivate(url Wssurl, apiKey, apiSecret string) (*WssBybit
 	}
 	wss.handlePriv[wss.listenner.key] = &priv
 	wss.nbconn += 1
+	wss.reset += 1
 	// Authenticate with API.
 	wss.auth(apiKey, apiSecret)
 	return wss, nil

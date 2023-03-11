@@ -21,6 +21,7 @@ type WssBybit struct {
 	pub        public
 	nbconn     int
 	nbHandle   int
+	reset      int
 	handlePriv map[WssId]*private
 	handlePub  map[WssId]*public
 	err        error
@@ -186,11 +187,17 @@ func (wss *WssBybit) CloseConn(id WssId) {
 		w.stop <- true
 		w.conn.Close()
 		delete(wss.handlePriv, id)
+		wss.nbconn -= 1
 	} else if w, ok := wss.handlePub[id]; ok {
 		w.stop <- true
 		w.conn.Close()
 		delete(wss.handlePub, id)
+		wss.nbconn -= 1
 	}
+}
+
+func (wss *WssBybit) Conn() int {
+	return wss.nbconn
 }
 
 func (wss *WssBybit) Close() {
@@ -208,6 +215,7 @@ func (wss *WssBybit) Close() {
 			w.conn.Close()
 		}
 	}
+	wss.nbconn = 0
 }
 
 func generateSignature(apiKey string, apiSecret string) (string, int64) {
@@ -220,4 +228,21 @@ func generateSignature(apiKey string, apiSecret string) (string, int64) {
 	signatureStr := fmt.Sprintf("%x", signature.Sum(nil))
 
 	return signatureStr, expires
+}
+
+func (wss *WssBybit) resetConnection() {
+	wss.mu.Lock()
+	wss.reset = 0
+	wss.mu.Unlock()
+}
+
+func (wss *WssBybit) CheckLimit() {
+	ticker := time.NewTicker(time.Duration(time.Minute * 5))
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			wss.resetConnection()
+		}
+	}
 }
