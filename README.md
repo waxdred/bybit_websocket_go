@@ -1,7 +1,7 @@
 # Bybit WebSocket Go Library
 ![GitHub Workflow Status](https://github.com/waxdred/bybit_websocket_go/actions/workflows/go.yml/badge.svg)
 ![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)
-This is a Go package for connecting to Bybit's WebSocket API. It provides a simple way to connect to both public and private streams, and includes support for subscribing to and processing real-time market data, trading information, and account information.
+### This is a Go package for connecting to Bybit's WebSocket API. It provides a simple way to connect to both public and private streams, and includes support for subscribing to and processing real-time market data, trading information, and account information.
 
 ## Table of Contents
 - [Installation](#Installation)
