@@ -79,7 +79,7 @@ Bybit offers two separate environments for testing and live trading: Testnet and
 
 In the code, you can select which environment to use by passing either Bwss.Testnet or Bwss.Mainnet as the parameter to the WssUrl functions:
 
-``go
+```go
 wss.WssUrl.Perpetual(Bwss.Testnet) // for Testnet
 wss.WssUrl.Perpetual(Bwss
 ```
@@ -95,7 +95,59 @@ And to connect to the Mainnet spot trading endpoint, you can use:
 ```go
 wss.AddConnPublic(wss.WssUrl.Spot(Bwss.Mainnet)).
 ````
+
+Testnet and Mainnet are two separate environments provided by Bybit for testing and live trading, respectively. Testnet is a sandbox environment that allows you to test your code and strategies without risking real funds, while Mainnet is the production environment used for actual trading.
 It's important to note that different API keys are required for the Testnet and Mainnet environments. Be sure to generate separate API keys for each environment and use them accordingly.
+
+## Exemple
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"time"
+
+	// "log"
+	Bwss "github.com/waxdred/bybit_websocket_go"
+)
+
+func main() {
+	apiKey := "XXXXXXXXXXXXXX"
+	apiSecret := "XXXXXXXXXXXXXXXX"
+	wss := new(Bwss.WssBybit).New(true)
+	// close all connection open
+	defer wss.Close()
+
+	wss.AddConnPrivate(wss.WssUrl.Private(Bwss.Testnet), apiKey, apiSecret).
+		AddPrivateSubs([]string{"wallet", "position"},
+			func(wss *Bwss.WssBybit, sockk *Bwss.SocketMessage) {
+				// handler function
+				wallet := Bwss.Wallet{}
+				sockk.Unmarshal(&wallet)
+				log.Println(wallet.PrettyFormat())
+			},
+			func(wss *Bwss.WssBybit, sockk *Bwss.SocketMessage) {
+				fmt.Println("handle postion start")
+				position := Bwss.Position{}
+				sockk.Unmarshal(&position)
+				log.Println(position.PrettyFormat())
+			}).Listen()
+            
+	id, _ := wss.AddConnPublic(wss.WssUrl.Perpetual(Bwss.Mainnet)).
+		AddPublicSubs([]string{"orderbook.1.BTCUSDT"},
+			func(wss *Bwss.WssBybit, sockk *Bwss.SocketMessage) {
+				fmt.Println(string(sockk.Msg))
+			}).Listen()
+	time.Sleep(time.Duration(time.Second * 10))
+	wss.CloseConn(id)
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	<-stop
+}
+```
 
 For more examples and detailed usage instructions, please see the GoDoc [documentation](https://pkg.go.dev/github.com/waxdred/bybit_websocket_go?utm_source=godoc).
 
