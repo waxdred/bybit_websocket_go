@@ -6,9 +6,6 @@ This is a Go library for interacting with the Bybit WebSocket API.
 ## Table of Contents
 - [Installation](#Installation)
 - [Usage](#Usage)
-- [Exemple](#Exemple)
-- [Message](#Message)
-- [Embed](#Embed)
 
 # Installation
 To use this library in your Go project, you can install it using go get:
