@@ -6,6 +6,12 @@
 ## Table of Contents
 - [Installation](#Installation)
 - [Usage](#Usage)
+- [Connection](#Connection)
+- [Public streams](#Public streams)
+- [Private streams](#Private streams)
+- [Testnet vs Mainnet](#Testnet vs Mainnet)
+- [Contributing](#Contributing)
+- [License](#License)
 
 # Installation
 To use this package, you need to have Go installed on your system. You can then install the package by running:
