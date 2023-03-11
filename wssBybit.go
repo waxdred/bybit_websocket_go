@@ -168,7 +168,7 @@ func (sockk *SocketMessage) Unmarshal(data interface{}) error {
 	return nil
 }
 
-func (wss *WssBybit) auth() {
+func (wss *WssBybit) auth(apiKey, apiSecret string) {
 	sign, expires := generateSignature(apiKey, apiSecret)
 	authPayload := map[string]interface{}{
 		"op":   "auth",

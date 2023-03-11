@@ -88,6 +88,6 @@ func (wss *WssBybit) addPrivate(url Wssurl, apiKey, apiSecret string) (*WssBybit
 	wss.handlePriv[wss.listenner.key] = &priv
 	wss.nbconn += 1
 	// Authenticate with API.
-	wss.auth()
+	wss.auth(apiKey, apiSecret)
 	return wss, nil
 }
