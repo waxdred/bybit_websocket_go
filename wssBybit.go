@@ -16,10 +16,8 @@ type (
 type WssId string
 
 type WssBybit struct {
-	mu sync.RWMutex
-	// priv     map[string]*private
-	pub        public
-	nbconn     int
+	mu         sync.RWMutex
+	controller controller
 	nbHandle   int
 	reset      int
 	handlePriv map[WssId]*private
@@ -29,6 +27,10 @@ type WssBybit struct {
 	Dg         bool
 	run        string
 	listenner  *listenner
+}
+
+type conn struct {
+	private int
 }
 
 type listenner struct {
@@ -41,10 +43,31 @@ type SocketMessage struct {
 	Key string
 }
 
+type ct struct {
+	nb  int
+	run bool
+}
+
+type controller struct {
+	mu              sync.RWMutex
+	nbSpot          ct
+	nbPerpetual     ct
+	nbContract      ct
+	nbOption        ct
+	nbSpotTest      ct
+	nbPerpetualTest ct
+	nbContractTest  ct
+	nbOptionTest    ct
+	nbPriv          ct
+	nbPrivTest      ct
+}
+
 func (wss *WssBybit) New(debugInfo bool) *WssBybit {
 	wss = &WssBybit{
-		mu:         sync.RWMutex{},
-		nbconn:     0,
+		mu: sync.RWMutex{},
+		controller: controller{
+			mu: sync.RWMutex{},
+		},
 		nbHandle:   0,
 		handlePriv: make(map[WssId]*private),
 		handlePub:  make(map[WssId]*public),
@@ -187,17 +210,11 @@ func (wss *WssBybit) CloseConn(id WssId) {
 		w.stop <- true
 		w.conn.Close()
 		delete(wss.handlePriv, id)
-		wss.nbconn -= 1
 	} else if w, ok := wss.handlePub[id]; ok {
 		w.stop <- true
 		w.conn.Close()
 		delete(wss.handlePub, id)
-		wss.nbconn -= 1
 	}
-}
-
-func (wss *WssBybit) Conn() int {
-	return wss.nbconn
 }
 
 func (wss *WssBybit) Close() {
@@ -215,7 +232,6 @@ func (wss *WssBybit) Close() {
 			w.conn.Close()
 		}
 	}
-	wss.nbconn = 0
 }
 
 func generateSignature(apiKey string, apiSecret string) (string, int64) {
@@ -236,13 +252,146 @@ func (wss *WssBybit) resetConnection() {
 	wss.mu.Unlock()
 }
 
-func (wss *WssBybit) CheckLimit() {
+func (wss *WssBybit) checkConnection(types string, check string) {
+	wss.controller.mu.Lock()
+	defer wss.controller.mu.Unlock()
+	switch string(types) {
+	case "wssSpot":
+		if !wss.controller.nbSpot.run {
+			wss.checkLimit(types)
+		}
+		if check == "controller" {
+			wss.controlleConnection(&wss.controller.nbSpot.nb)
+		} else if check == "connection" {
+			wss.controller.nbSpot.nb += 1
+		} else if check == "reset" {
+			wss.controller.nbSpot.nb = 0
+		}
+	case "wssPerpetual":
+		if !wss.controller.nbPerpetual.run {
+			wss.checkLimit(types)
+		}
+		if check == "controller" {
+			wss.controlleConnection(&wss.controller.nbPerpetual.nb)
+		} else if check == "connection" {
+			wss.controller.nbPerpetual.nb += 1
+		} else if check == "reset" {
+			wss.controller.nbPerpetual.nb = 0
+		}
+	case "wssContract":
+		if !wss.controller.nbContract.run {
+			wss.checkLimit(types)
+		}
+		if check == "controller" {
+			wss.controlleConnection(&wss.controller.nbContract.nb)
+		} else if check == "connection" {
+			wss.controller.nbContract.nb += 1
+		} else if check == "reset" {
+			wss.controller.nbContract.nb = 0
+		}
+	case "wssOption":
+		if !wss.controller.nbOption.run {
+			wss.checkLimit(types)
+		}
+		if check == "controller" {
+			wss.controlleConnection(&wss.controller.nbOption.nb)
+		} else if check == "connection" {
+			wss.controller.nbOption.nb += 1
+		} else if check == "reset" {
+			wss.controller.nbOption.nb = 0
+		}
+	case "wssSpotTest":
+		if !wss.controller.nbSpotTest.run {
+			wss.checkLimit(types)
+		}
+		if check == "controller" {
+			wss.controlleConnection(&wss.controller.nbSpotTest.nb)
+		} else if check == "connection" {
+			wss.controller.nbSpotTest.nb += 1
+		} else if check == "reset" {
+			wss.controller.nbSpotTest.nb = 0
+		}
+	case "wssPerpetualTest":
+		if !wss.controller.nbPerpetualTest.run {
+			wss.checkLimit(types)
+		}
+		if check == "controller" {
+			wss.controlleConnection(&wss.controller.nbPerpetualTest.nb)
+		} else if check == "connection" {
+			wss.controller.nbPerpetualTest.nb += 1
+		} else if check == "reset" {
+			wss.controller.nbPerpetualTest.nb = 0
+		}
+	case "wssContractTest":
+		if !wss.controller.nbContractTest.run {
+			wss.checkLimit(types)
+		}
+		if check == "controller" {
+			wss.controlleConnection(&wss.controller.nbContractTest.nb)
+		} else if check == "connection" {
+			wss.controller.nbContractTest.nb += 1
+		} else if check == "reset" {
+			wss.controller.nbContractTest.nb = 0
+		}
+	case "wssOptionTest":
+		if !wss.controller.nbOptionTest.run {
+			wss.checkLimit(types)
+		}
+		if check == "controller" {
+			wss.controlleConnection(&wss.controller.nbOptionTest.nb)
+		} else if check == "connection" {
+			wss.controller.nbOptionTest.nb += 1
+		} else if check == "reset" {
+			wss.controller.nbOptionTest.nb = 0
+		}
+	case "wssPriv":
+		if !wss.controller.nbPriv.run {
+			wss.checkLimit(types)
+		}
+		if check == "controller" {
+			wss.controlleConnection(&wss.controller.nbPriv.nb)
+		} else if check == "connection" {
+			wss.controller.nbPriv.nb += 1
+		} else if check == "reset" {
+			wss.controller.nbPriv.nb = 0
+		}
+	case "wssPrivTest":
+		if !wss.controller.nbPrivTest.run {
+			wss.checkLimit(types)
+		}
+		if check == "controller" {
+			wss.controlleConnection(&wss.controller.nbPrivTest.nb)
+		} else if check == "connection" {
+			wss.controller.nbPrivTest.nb += 1
+		} else if check == "reset" {
+			wss.controller.nbPrivTest.nb = 0
+		}
+	default:
+	}
+}
+
+func (wss *WssBybit) controlleConnection(conn *int) {
+	if *conn >= 500 {
+		ticker := time.NewTicker(time.Duration(time.Minute * 1))
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if *conn < 400 {
+					break
+				}
+			}
+		}
+	}
+}
+
+func (wss *WssBybit) checkLimit(types string) {
 	ticker := time.NewTicker(time.Duration(time.Minute * 5))
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			wss.resetConnection()
+			wss.checkConnection(types, "reset")
 		}
 	}
 }

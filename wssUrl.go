@@ -22,6 +22,33 @@ type (
 
 type WssUrl struct{}
 
+func (w *Wssurl) getName() string {
+	switch string(*w) {
+	case "wss://stream.bybit.com/v5/public/spot":
+		return "wssSpot"
+	case "wss://stream.bybit.com/v5/public/linear":
+		return "wssPerpetual"
+	case "wss://stream.bybit.com/v5/public/inverse":
+		return "wssContract"
+	case "wss://stream.bybit.com/v5/public/option":
+		return "wssOption"
+	case "wss://stream-testnet.bybit.com/v5/public/spot":
+		return "wssSpotTest"
+	case "wss://stream-testnet.bybit.com/v5/public/linear":
+		return "wssPerpetualTest"
+	case "wss://stream-testnet.bybit.com/v5/public/inverse":
+		return "wssContractTest"
+	case "wss://stream-testnet.bybit.com/v5/public/option":
+		return "wssOptionTest"
+	case "wss://stream.bybit.com/v5/private":
+		return "wssPriv"
+	case "wss://stream-testnet.bybit.com/v5/private":
+		return "wssPrivTest"
+	default:
+		return ""
+	}
+}
+
 func (w *WssUrl) Spot(option Channel) Wssurl {
 	switch option {
 	case Mainnet:
